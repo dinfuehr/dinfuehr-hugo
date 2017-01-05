@@ -1,0 +1,16 @@
+languageCode = "en-us"
+title = "My New Hugo Site"
+baseurl = "https://dinfuehr.github.io/"
+
+[permalinks]
+fixed = ":title/"
+blog  = "blog/:slug/"
+
+[params]
+author = "Dominik Inführ"
+email = "dominik.infuehr@gmail.com"
+github = "//github.com/dinfuehr"
+twitter = "//twitter.com/dinfuehr"
+
+dateform     = "Jan 2, 2006"
+dateformfull = "Mon Jan 2 2006 15:04:05 MST"
