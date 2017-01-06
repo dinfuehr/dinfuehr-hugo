@@ -168,6 +168,7 @@ I chose the fastest single-threaded Java implementation (dora does not support m
 
 For `fannkuch-redux` Dora is only 3.6 times slower than the Java equivalent running on OpenJDK (version 1.8.0_112), the benchmark results for `binarytrees` are way worse: Dora is 26x slower.
 This is easily explained: `binarytrees` stresses the GC and the current implementation isn't the most efficient.
+We will later look into this in more detail.
 
 Nevertheless I am satisfied with these numbers.
 Neither did I cheat nor am I expecting these numbers get worse when adding more features.
@@ -175,15 +176,47 @@ Neither did I cheat nor am I expecting these numbers get worse when adding more 
 It should be clear but just to make sure: Please don't draw any conclusions on Rust's performance from these benchmarks.
 All time is spent in the generated machine-code, Dora is at fault not Rust.
 
+### binarytrees
+We can look deeper into the `binarytrees` benchmark and run the program with [perf](https://perf.wiki.kernel.org/index.php/Main_Page).
+perf can record stacktraces using sampling.
+Thanks to [Brendan Gregg](http://www.brendangregg.com/) we can create [flame graphs](https://github.com/brendangregg/FlameGraph) as interactive SVGs, which is pretty cool:
+
+<a href="/images/perf-binarytrees.svg"><img src="/images/perf-binarytrees.svg" alt="binarytrees flame graph"></a>
+
+The nice thing is that this both shows user and kernel stack traces.
+We also can observe that the memory allocator uses another thread, since there is a pretty wide column next to function `dora::main`, the `main` function in [binarytrees.dora](https://github.com/dinfuehr/dora/tree/master/bench/binarytrees/binarytrees.dora).
+`perf` event emits the function names for the jitted functions, which was actually pretty easy to achieve.
+All you need to do is to [create](https://github.com/dinfuehr/dora/blob/master/src/os/perf.rs) a file `/tmp/perf-<pid>.map` that consists of lines with this format:
+
+```
+<code address start> <length> <function name>
+```
+
+Dora just needs to emit such lines for every jitted function.
+Dora also supports emitting garbage collection stats with `--gc-stats`:
+
+```
+GC stats:
+	duration: 65394 ms
+	malloc duration: 25462 ms
+	collect duration: 17746 ms
+		mark duration: 1422 ms
+		sweep duration: 16323 ms
+	75 collections
+	29158805890 bytes allocated
+```
+
+We see that Dora spends 65 seconds just for allocating memory and collecting garbage.
+
 ### Using Rust
 I started the project to try out Rust on a non-trivial project.
 I knew some Rust but hadn't used it on a project before.
 `cargo` and `rustup` are some great tools.
 They also work on my Odroid C2 where I implemented AArch64 support.
-Cross-compiling became pretty easy, although I just used it for making sure Dora still builds on AArch64.
-This is as simple as `cargo build --target=aarch64-unknown-linux-gnu`.
+Cross-compiling became pretty easy, although I just used it for making sure Dora still builds on AArch64
+(I never bothered to try to get it to link).
+Cross-building is as simple as `cargo build --target=aarch64-unknown-linux-gnu`.
 
-What was especially hard to get used to was exclusive mutability, not really borrowing or ownership.
+What was especially hard for me to get used to was exclusive mutability, not really borrowing or ownership.
 I am perfectly aware that this feature is the reason I don't have to worry about iterator invalidation or data races.
-It is just that sometimes I still feel restricted by it.
 The good thing about that though, it forces you to think about organizing your data structures more thoroughly.
