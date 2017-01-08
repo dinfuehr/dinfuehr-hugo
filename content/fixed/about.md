@@ -6,5 +6,4 @@ title = "about"
 +++
 
 Hi, I am Dominik Inführ.
-I want to write about programming, compilers and VMs.
-We will see how this works out.
+I write about programming, compilers and VMs.
