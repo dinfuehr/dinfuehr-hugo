@@ -33,9 +33,34 @@ Adding other platforms should be possible without touching the baseline compiler
 Implementing the second ISA certainly helped making the architecture cleaner and unveiled two bugs I didn't notice on x86_64.
 It was also pretty interesting to implement instruction encoding, both for [x86_64](https://github.com/dinfuehr/dora/blob/master/src/cpu/x64/asm.rs) and [AArch64](https://github.com/dinfuehr/dora/blob/master/src/cpu/arm64/asm.rs).
 I didn't implement instruction decoding myself, for this purpose I used the [capstone](http://www.capstone-engine.org/) library.
-The generated machine-code can be emitted with `dora --emit-asm=all hello.dora`.
+The generated machine-code can be emitted with `dora --emit-asm=all hello-world.dora`.
+A nice feature of the MacroAssembler is that comments can be added to the generated instructions.
+When disassembling the comments are printed along the disassembled machine instructions:
+
+```
+fn main() 0x7f33bab6d010
+  0x7f33bab6d010: pushq		%rbp
+  0x7f33bab6d011: movq		%rsp, %rbp
+  0x7f33bab6d014: subq		$0x10, %rsp
+		  ; prolog end
+
+
+		  ; load string
+  0x7f33bab6d018: movq		-0x17(%rip), %rax
+  0x7f33bab6d01f: movq		%rax, -8(%rbp)
+  0x7f33bab6d023: movq		-8(%rbp), %rdi
+		  ; call direct println(Str)
+  0x7f33bab6d027: movq		-0x2e(%rip), %rax
+  0x7f33bab6d02e: callq		*%rax
+
+		  ; epilog
+  0x7f33bab6d030: addq		$0x10, %rsp
+  0x7f33bab6d034: popq		%rbp
+  0x7f33bab6d035: retq
+```
+
 There already exists a [Rust wrapper](https://github.com/ebfe/rust-capstone) for the capstone libary.
-Although the README states that the bindings are incomplete, the wrapper supports all the features I need.
+Although the README states that the bindings are incomplete, the wrapper supported all the features I need.
 
 ### The Dora programming language
 Here is a simple Hello world program:
@@ -75,7 +100,7 @@ Functions that can throw need to be invoked like `try foo()` or `try obj.bar()`,
 I like this syntax because it makes it obvious in the caller that an exception could occur.
 
 For runtime errors like failed assertions, the program is halted and the current stack trace is printed.
-Although exceptions and stack traces sound quite unspectacular, I was quite happy when this first worked.
+Although exceptions and stack traces sound quite unspectacular, I was quite happy when this worked for the first time.
 
 Dora even supports classes and inheritance.
 It has [primary](https://github.com/dinfuehr/dora/blob/master/tests/pctor1.dora) and [secondary](https://github.com/dinfuehr/dora/blob/master/tests/ctor3.dora) constructors like [Kotlin](https://kotlinlang.org/docs/reference/classes.html).
@@ -175,7 +200,7 @@ All time is spent in the generated machine-code, Dora is at fault not Rust.
 ### binarytrees
 We can look deeper into the `binarytrees` benchmark and run the program with [perf](https://perf.wiki.kernel.org/index.php/Main_Page).
 perf can record stacktraces using sampling.
-Thanks to [Brendan Gregg](http://www.brendangregg.com/) we can create [flame graphs](https://github.com/brendangregg/FlameGraph) as interactive SVGs, which is pretty cool:
+Thanks to [Brendan Gregg](http://www.brendangregg.com/) we can create [flame graphs](https://github.com/brendangregg/FlameGraph) as interactive SVGs from the collected stacktraces, which is pretty cool:
 
 <a href="/images/perf-binarytrees.svg"><img src="/images/perf-binarytrees.svg" alt="binarytrees flame graph"></a>
 
