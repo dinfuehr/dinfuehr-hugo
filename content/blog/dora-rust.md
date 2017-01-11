@@ -81,7 +81,8 @@ Dora even supports classes and inheritance.
 It has [primary](https://github.com/dinfuehr/dora/blob/master/tests/pctor1.dora) and [secondary](https://github.com/dinfuehr/dora/blob/master/tests/ctor3.dora) constructors like [Kotlin](https://kotlinlang.org/docs/reference/classes.html).
 The keyword [`is`](https://github.com/dinfuehr/dora/blob/master/tests/is1.dora) is similar to Javas `instanceof`, while [`as`](https://github.com/dinfuehr/dora/blob/master/tests/as1.dora) is used for the checked cast (in Java you would write `(SomeClass) obj` for that).
 I implemented this check as described in this great [paper](https://www.researchgate.net/publication/221552851_Fast_subtype_checking_in_the_HotSpot_JVM) from Cliff Click and John Rose.
-Unfortunately I haven't benchmarked my implementation of the *fast subtype check* yet, I
+Unfortunately I haven't benchmarked my implementation of the *fast subtype check* yet.
+My implementation is a bit easier since Dora doesn't have interfaces or dynamically loaded classes.
 
 ### Garbage Collection
 
