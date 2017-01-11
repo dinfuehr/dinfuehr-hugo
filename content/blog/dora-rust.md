@@ -98,7 +98,7 @@ Marking one object means setting the mark-flag and recursively traversing throug
 A nice property of the marking phase is that cycles in the object graph are no problem.
 On the other hand you need to be careful to avoid stack overflows when you have deeply nested object graphs, so you probably shouldn't implement marking through an recursive function call.
 That's the reason I just add the objects into a [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html) instead of using the stack.
-When sweeping, the garbage collector runs through all allocated objects and frees unmarked objects.
+When sweeping, the garbage collector simply runs through all allocated objects and frees unmarked objects.
 
 The GC really just uses libc's `malloc` for allocating objects and `free` while *Sweeping*.
 All allocated objects are connected in a single linked list.
@@ -161,7 +161,7 @@ I chose the fastest single-threaded Java implementation (dora does not support m
 
 ![Benchmark results](/images/dora-bench-game.png)
 
-For `fannkuch-redux` Dora is only 3.6 times slower than the Java equivalent running on OpenJDK (version 1.8.0_112), the benchmark results for `binarytrees` are way worse: Dora is 26x slower.
+For `fannkuch-redux` Dora is only 3.5 times (40s to 138s) slower than the Java equivalent running on OpenJDK (version 1.8.0_112), the benchmark results for `binarytrees` are worse: Dora is 14x slower (55s instead of 4s).
 This is easily explained: `binarytrees` stresses the GC and the current implementation isn't really the most efficient.
 We will later look into this benchmark in more detail.
 
@@ -192,16 +192,15 @@ Dora also supports emitting garbage collection stats with `--gc-stats`:
 
 ```
 GC stats:
-	duration: 65394 ms
-	malloc duration: 25462 ms
-	collect duration: 17746 ms
-		mark duration: 1422 ms
-		sweep duration: 16323 ms
+	collect duration: 17715 ms
+	607475118 allocations
 	75 collections
 	29158805890 bytes allocated
 ```
 
-We see that Dora spends 65 seconds just for allocating memory and collecting garbage.
+We see that Dora spends 17 seconds alone for collecting garbage, this benchmarks makes over 600 million allocations to allocate a total of about 27GB memory.
+At first I also wanted to benchmark allocation duration but this was way too expensive.
+Just by removing those `time::precise_time_ns` invocations reduced run-time from 110s to 55s.
 
 ### Using Rust
 A few words on using Rust: I started the project to try out Rust on a non-trivial project.
