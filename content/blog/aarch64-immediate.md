@@ -55,4 +55,4 @@ For such numbers AArch64 has the `movn` instruction that assigns the expression 
 Some immediates can be encoded in less instructions with `movz`, some with `movk`, some need the same number of instructions.
 [v8](https://github.com/v8/v8/blob/master/src/arm64/macro-assembler-arm64.cc#L164) for example really determines the shortest combination of instructions for the given immediate.
 
-* The lastest encoding format is the most complicated and non-intuitive.
+* The last encoding format is the most complicated and non-intuitive.
