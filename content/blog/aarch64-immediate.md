@@ -58,7 +58,7 @@ For such numbers AArch64 has the `movn` instruction that assigns the expression 
 
 [v8](https://github.com/v8/v8/blob/master/src/arm64/macro-assembler-arm64.cc#L164) for example really determines whether it is more beneficial (this means less instructions) to encode an immediate via `movn` or `movz`.
 
-The last encoding format in the logical immediate instruction class is the most complicated and non-intuitive (at least for me).
+The last encoding format is the logical immediate instruction class is the most complicated and non-intuitive (at least for me).
 This is the definition from the ARM Reference Manual:
 
 > The logical immediate instructions accept a bitmask immediate bimm32 or bimm64.
@@ -158,3 +158,8 @@ The upper bits specify the element size, while the lower bits marked with `x` ar
 0 means there is one 1, 1 means there are 1's and so on.
 Remember: The format doesn't allow 0 or all ones to be encoded.
 At the same time it is not allowed to set all `x` to 1, since this would allow to create all ones.
+
+Let's see some examples:
+
+* `0|111100` represents element `01` (2 bits element size, one 1)
+* `0|110101` represents element `00111111` (8 bits element size, six 1's)
