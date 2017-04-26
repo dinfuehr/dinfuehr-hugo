@@ -8,7 +8,7 @@ draft = true
 AArch64 is an ISA with a fixed instruction width of 32-bit.
 This obviously means there is not enough space to store a 64-bit immediate in a single instruction.
 Before working with AArch64 I was only familiar with x86 where this is a bit easier since instructions can have variable-width.
-A 64-bit immediate on x86-64 is really just a sequence of 8 bytes (respectively 4 bytes for 32-bits and 1-byte for 8-bits):
+A 64-bit immediate on x86-64 is really just the sequence of bytes:
 
 ```
 mov rax, 0x1122334455667788
@@ -18,8 +18,12 @@ mov rax, 0x1122334455667788
 A fixed-width ISA like ARM has to treat immediates differently.
 AArch64 actually has multiple formats for encoding immediate values:
 
-* Instructions like `add` or `sub` allow a 12-bit unsigned immediate that can optionally be shifted by 12 bits.
-* The move instructions `movz`, `movn` and `movk` have space for a 16-bit unsigned immediate that can be shifted by either 0, 16, 32 or 48 bits. 
+Instructions like `add` or `sub` allow a 12-bit unsigned immediate that can optionally be shifted by 12 bits.
+This allows to encode some numbers directly into the instruction, instead of using a temporary register.
+Negative numbers e.g. -1 (which is all ones) cannot be encoded with an `add` instruction.
+But since `sub` is just an addition of the [two's complement](https://en.wikipedia.org/wiki/Two%27s_complement), we can use sub for that: `sub x0, x0, 1`.
+
+The move instructions `movz`, `movn` and `movk` have space for a 16-bit unsigned immediate that can be shifted by either 0, 16, 32 or 48 bits.
 
 These move instructions can be combined to assign the value `0x1122334455667788` to the register `x0`:
 
@@ -52,10 +56,9 @@ For such numbers AArch64 has the `movn` instruction that assigns the expression 
 -1 can so be encoded in one single instruction: `movn x0, 0`.
 `movn` can also be combined with `movk`, use it to set parts of the number that are not all ones.
 
-Some immediates can be encoded in less instructions with `movz`, some with `movk`, some need the same number of instructions.
-[v8](https://github.com/v8/v8/blob/master/src/arm64/macro-assembler-arm64.cc#L164) for example really determines the shortest combination of instructions for a given immediate.
+[v8](https://github.com/v8/v8/blob/master/src/arm64/macro-assembler-arm64.cc#L164) for example really determines whether it is more beneficial (this means less instructions) to encode an immediate via `movn` or `movz`.
 
-* The last encoding format in the logical immediate instruction class is the most complicated and non-intuitive (at least for me).
+The last encoding format in the logical immediate instruction class is the most complicated and non-intuitive (at least for me).
 This is the definition from the ARM Reference Manual:
 
 > The logical immediate instructions accept a bitmask immediate bimm32 or bimm64.
@@ -71,23 +74,22 @@ Although this sounds problematic at first, this isn't actually a restriction: th
 
 This format allows to specify an element of 2-, 4-, 8-, 16-, 32- or 64-bits.
 Both the element size and the element value is stored in the `N` and `imms` fields.
-The element value needs to be a consecutive sequence of (at least one) zeroes, followed by a consecutive sequence of (at least one) ones.
-(The regular expression `0+1+` could be used to describe these values)
+The element value needs to be a consecutive sequence of (at least one) zeroes, followed by a consecutive sequence of (at least one) ones (regex would be `0+1+`).
 The format doesn't really store the element value but just needs the number of consecutive ones in the element.
 
 The so specified element value can be right rotated up to element size minus 1 to move the start of the sequence of ones to any other point in the element.
 The number of rotations is stored in `immr` which has 6 bits, so it allows up to 63 rotations in the case of an element size of 64 bits.
 An element size of 2 only allows 0 or 1 rotations, in this case only the least significant bit is considered, the upper 5 bits of `immr` are simply ignored.
 
-After rotation the element gets replicated until it reaches 32- or 64-bits and we finally have the immediate.
-13-bits could store 8192 different values, but since e.g. the rotation is not always used to its full potential with smaller element sizes it actually allows less different values but probably a more useful subset of bit patterns.
+The element gets replicated until it reaches 32- or 64-bits.
+13-bits could store 8192 different values, but since e.g. the rotation is not always used to its full potential with smaller element sizes it actually allows less different values but probably a more useful set of bit patterns.
 
 Since `immr` is actually quite boring (just stores the number of rotations), let's look into how `N` and `imms` can store both the element size and the number of consecutive ones at the same time:
 
 <table>
   <tr>
     <td>N</td>
-    <td>immr</td>
+    <td colspan="6">immr</td>
     <td>element size</td>
   </tr>
   <tr>
@@ -98,7 +100,7 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
     <td>1</td>
     <td>0</td>
     <td>x</td>
-    <td>2</td>
+    <td>2 bits</td>
   </tr>
   <tr>
     <td>0</td>
@@ -108,7 +110,7 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
     <td>0</td>
     <td>x</td>
     <td>x</td>
-    <td>4</td>
+    <td>4 bits</td>
   </tr>
   <tr>
     <td>0</td>
@@ -118,7 +120,7 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
     <td>x</td>
     <td>x</td>
     <td>x</td>
-    <td>8</td>
+    <td>8 bits</td>
   </tr>
   <tr>
     <td>0</td>
@@ -128,7 +130,7 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
     <td>x</td>
     <td>x</td>
     <td>x</td>
-    <td>16</td>
+    <td>16 bits</td>
   </tr>
   <tr>
     <td>0</td>
@@ -138,7 +140,7 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
     <td>x</td>
     <td>x</td>
     <td>x</td>
-    <td>32</td>
+    <td>32 bits</td>
   </tr>
   <tr>
     <td>1</td>
@@ -148,11 +150,11 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
     <td>x</td>
     <td>x</td>
     <td>x</td>
-    <td>64</td>
+    <td>64 bits</td>
   </tr>
 </table>
 
-The bits marked with `x` are used to store the consecutive sequence of ones.
-0 means there is one 1, 1 means there is 2 1's and so on.
+The upper bits specify the element size, while the lower bits marked with `x` are used to store the consecutive sequence of ones.
+0 means there is one 1, 1 means there are 1's and so on.
 Remember: The format doesn't allow 0 or all ones to be encoded.
-At the same time it is not allowed to set all `x` to 1, since this would make the element to contain no zero.
+At the same time it is not allowed to set all `x` to 1, since this would allow to create all ones.
