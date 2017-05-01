@@ -20,8 +20,7 @@ AArch64 actually has multiple formats for encoding immediate values:
 
 Instructions like `add` or `sub` allow a 12-bit unsigned immediate that can optionally be shifted by 12 bits.
 This allows to encode some numbers directly into the instruction, instead of using a temporary register.
-Negative numbers e.g. -1 (which is all ones) cannot be encoded with an `add` instruction.
-But since `sub` is just an addition of the [two's complement](https://en.wikipedia.org/wiki/Two%27s_complement), we can use sub for that: `sub x0, x0, 1`.
+Negative numbers e.g. -1 (which is all ones) cannot be encoded with an `add` instruction, but `sub` can be used to subtract 1: `sub x0, x0, 1`.
 
 The move instructions `movz`, `movn` and `movk` have space for a 16-bit unsigned immediate that can be shifted by either 0, 16, 32 or 48 bits.
 
@@ -156,8 +155,8 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
 
 The upper bits specify the element size, while the lower bits marked with `x` are used to store the consecutive sequence of ones.
 0 means there is one 1, 1 means there are 1's and so on.
-Remember: The format doesn't allow 0 or all ones to be encoded.
-At the same time it is not allowed to set all `x` to 1, since this would allow to create all ones.
+At the same time it is not allowed to set all `x` to 1, since this would allow to create all ones
+(Remember: The format doesn't allow 0 or all ones to be encoded).
 
 Let's see some examples:
 
