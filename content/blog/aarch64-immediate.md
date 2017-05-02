@@ -177,7 +177,7 @@ See here for the [full output](https://gist.github.com/dinfuehr/51a01ac58c0b23e4
 I verified the output by comparing all values to the output of the AArch64 assembler.
 Scrolling over all values, element sizes, rotations etc. should give you a quick overview of what numbers can be encoded with this representation.
 
-For some source code examples, see e.g. LLVM, which also handles [encoding](https://github.com/llvm-mirror/llvm/blob/master/lib/Target/AArch64/MCTargetDesc/AArch64AddressingModes.h#L213) and [decoding](https://github.com/llvm-mirror/llvm/blob/master/lib/Target/AArch64/MCTargetDesc/AArch64AddressingModes.h#L292) of logical immediates.
+For some source code examples, see e.g. LLVM, which also handles [encoding](https://github.com/llvm-mirror/llvm/blob/5c95b810cb3a7dee6d49c030363e5bf0bb41427e/lib/Target/AArch64/MCTargetDesc/AArch64AddressingModes.h#L213) and [decoding](https://github.com/llvm-mirror/llvm/blob/5c95b810cb3a7dee6d49c030363e5bf0bb41427e/lib/Target/AArch64/MCTargetDesc/AArch64AddressingModes.h#L292) of logical immediates.
 
 # Other immediates
 There are even more instruction classes that accept immediates as operands
