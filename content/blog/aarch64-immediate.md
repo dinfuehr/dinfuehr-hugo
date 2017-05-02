@@ -25,7 +25,7 @@ movk x0, 0x3344, lsl 32
 movk x0, 0x1122, lsl 48
 ```
 
-# Move wide immediates
+### Move wide immediates
 
 The move instructions (`movz`, `movn` and `movk`) have space for a 16-bit unsigned immediate that can be shifted by either 0, 16, 32 or 48 bits (2 bits for the shift).
 
@@ -53,7 +53,7 @@ For such numbers AArch64 features the `movn` instruction that assigns the expres
 
 [v8](https://github.com/v8/v8/blob/master/src/arm64/macro-assembler-arm64.cc#L164) for example really determines whether it is more beneficial (this means less instructions) to encode an immediate via `movn` or `movz`.
 
-# Add/Sub Immediates
+### Add/Sub Immediates
 
 In addition to immediates in move instructions, some instructions like `add` or `sub` also accept an immediate as operand.
 This allows to encode some numbers directly into the instruction, instead of using a temporary register.
@@ -61,7 +61,7 @@ All instructions of the add/sub immediate instruction class allow a 12-bit unsig
 If you want to use these instructions with an immediate that can't be encoded in this format, you have no choice but to use a temporary register and possibly multiple instructions for initializing this register.
 Although negative numbers e.g. -1 (which is all ones) cannot be encoded with an `add` instruction, the instruction `sub` can be used to subtract 1: `sub x0, x0, 1`.
 
-# Logical Immediates
+### Logical Immediates
 
 There is another instruction class that allows immediates as an operand: logical immediate. This instruction class is used for `and` (bitwise and), `orr` (bitwise or), `eor` (bitwise exclusive or) and `ands` (bitwise and and set flags).
 This instruction class is the most complicated and non-intuitive (at least for me) and the reason I started to write this blog post.
@@ -179,7 +179,7 @@ Scrolling over all values, element sizes, rotations etc. should give you a quick
 
 For some source code examples, see e.g. LLVM, which also handles [encoding](https://github.com/llvm-mirror/llvm/blob/5c95b810cb3a7dee6d49c030363e5bf0bb41427e/lib/Target/AArch64/MCTargetDesc/AArch64AddressingModes.h#L213) and [decoding](https://github.com/llvm-mirror/llvm/blob/5c95b810cb3a7dee6d49c030363e5bf0bb41427e/lib/Target/AArch64/MCTargetDesc/AArch64AddressingModes.h#L292) of logical immediates.
 
-# Other immediates
+### Other immediates
 There are even more instruction classes that accept immediates as operands
 (There is even one with floating-point).
 But IMHO they are not as complicated as the logical immediate class.
