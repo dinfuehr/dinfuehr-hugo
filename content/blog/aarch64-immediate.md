@@ -58,7 +58,7 @@ For such numbers AArch64 features the `movn` instruction that assigns the expres
 In addition to immediates in move instructions, some instructions like `add` or `sub` also accept an immediate as operand.
 This allows to encode some numbers directly into the instruction, instead of using a temporary register.
 All instructions of the add/sub immediate instruction class allow a 12-bit unsigned immediate that can optionally be shifted by 12 bits (1 bit for the shift).
-If you want to use these instructions with an immediate that can't be encoded in this format, you have no choice but to use a temporary register and possible multiple instructions for initializing this register.
+If you want to use these instructions with an immediate that can't be encoded in this format, you have no choice but to use a temporary register and possibly multiple instructions for initializing this register.
 Although negative numbers e.g. -1 (which is all ones) cannot be encoded with an `add` instruction, the instruction `sub` can be used to subtract 1: `sub x0, x0, 1`.
 
 # Logical Immediates
@@ -96,7 +96,7 @@ Since `immr` is actually quite boring (just stores the number of rotations), let
 <table>
   <tr>
     <td>N</td>
-    <td colspan="6">immr</td>
+    <td colspan="6">imms</td>
     <td>element size</td>
   </tr>
   <tr>
