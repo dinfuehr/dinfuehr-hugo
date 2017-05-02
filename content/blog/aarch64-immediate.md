@@ -172,8 +172,8 @@ Let's see some examples:
 * `0|110101` represents element `00111111` (8 bits element size, six 1's)
 
 There was an interesting [answer on Stack Overflow](http://stackoverflow.com/a/33265035/727454) that enumerates all 5334 possible 64-bit immediates with this encoding.
-I ported this [code to Ruby]() and dumped the fields `n`, `immr` and `imms` for all values.
-See here for the [full output]() of the script.
+I ported this [code to Ruby](https://gist.github.com/dinfuehr/9e1c2f28d0f912eae5e595207cb835c2) and dumped the fields `n`, `immr` and `imms` for all values.
+See here for the [full output](https://gist.github.com/dinfuehr/51a01ac58c0b23e4de9aac313ed6a06a) of the script.
 I verified the output by comparing all values to the output of the AArch64 assembler.
 Scrolling over all values, element sizes, rotations etc. should give you a quick overview of what numbers can be encoded with this representation.
 
