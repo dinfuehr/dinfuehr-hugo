@@ -10,7 +10,7 @@ Dora is both the name of the custom programming language and of the JIT-compiler
 After some time working on it, I want to write about the experiences I made.
 
 ### Architecture
-The architecture is pretty simple: `dora hello.dora` parses the given input file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree). After parsing the whole AST is semantically checked, if this succeeds execution starts with the `main` function.
+The architecture is pretty simple: `dora hello.dora` parses the given input file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree). After parsing, the whole AST is semantically checked, if this succeeds execution starts with the `main` function.
 
 To execute `main`, machine-code is generated for that function by the baseline compiler by [traversing](https://github.com/dinfuehr/dora/blob/master/src/baseline/codegen.rs) the AST nodes of the function.
 The function is traversed twice, first to generate information (mostly about the stack frame), the second traversal then generates the machine code.
@@ -27,8 +27,8 @@ Dora doesn't have an optimizing compiler at the moment.
 ### Compilation
 The baseline compiler uses the [MacroAssembler](https://github.com/dinfuehr/dora/blob/master/src/masm/mod.rs#L28) to generate machine code.
 All differences between different Instruction Set Architectures (ISAs) are handled by the MacroAssembler.
-Dora can generate machine-code for x86_64 and since about two weeks also for AArch64.
-Adding other platforms should be possible without touching the baseline compiler.
+Dora can generate machine-code for x86_64 and  AArch64.
+Adding other ISAs should be possible without touching the baseline compiler.
 
 Implementing the second ISA certainly helped making the architecture cleaner and unveiled two bugs I didn't notice on x86_64.
 It was also pretty interesting to implement instruction encoding, both for [x86_64](https://github.com/dinfuehr/dora/blob/master/src/cpu/x64/asm.rs) and [AArch64](https://github.com/dinfuehr/dora/blob/master/src/cpu/arm64/asm.rs).
@@ -73,15 +73,64 @@ fun main() {
 
 Dora is a custom-language with similarities to languages like Java, Kotlin and Rust (only syntactical).
 Most important: Dora is statically-typed and garbage collected.
-Dora is missing a lot of features, I planned to add more but writing a JIT is more than enough work.
+Dora is still missing a lot of features, I planned to add more but writing a JIT is more than enough work.
 Instead of adding more syntactic sugar, I preferred to implement features that are more interesting to implement in the JIT.
 
-So Dora has no floating point numbers, the only array it knows is `IntArray`.
-A class with the name `IntArray` almost reveals that there no generics, interfaces or traits yet.
-The only primitive datatypes Dora supports right now are `bool`, `int` and pointer-sized class references.
+Nevertheless Dora alredy has quite a large number of features.
+This are the supported primtive types: `bool`, `byte`, `char`, `int`, `long`, `float`, `double`.
+It is also possible to define your own classes (with inheritance) just like Java/Kotlin/etc.
 
-Why didn't I use an already existing language? I originally planned designing my own language.
-But even if I had used an already existing intermediate representation, bytecode or language, I certainly couldn't have implemented it fully either.
+```
+class Point(let x: int, let y: int)
+
+// generic classes are supported too
+class Wrapper<T>(let obj: T)
+```
+
+Dora also supports variable-sized objects like Arrays with the `Array<T>` class and Strings with `Str`.
+These object types need to be treated differently compared to fixed-size objects like `Point` in the example above (their size depends on the `length`-field).
+I know this doesn't sound that much, but I was quite happy when I achieved this milestone.
+
+What's also important to note for generic classes: Unlike Java, generic types can also be primitive types.
+So `Wrapper<int>` and `Wrapper<bool>` are both valid and are internally represented as two different classes.
+
+Since a few a weeks Dora also supports generic trait boundaries, such that designing a fast generic hashing key-value mapping implementation should be possible.
+I didn't yet write a generic `HashMap` but you can look into the implementation of `SlowMap` in the testsuite which should show that this is certainly feasible:
+
+```
+TODO: Insert SlowMap-Code here
+```
+
+But why didn't I use an already existing language?
+The main reason: I didn't intend to implement that many features into the language.
+All I wanted was a simple, staticaly typed language which I could easily generate machine code for.
+
+My original intention was to write a simple JIT-compiler to better understand how they work internally.
+I was specificly interested in how the JIT compiles functions on-the-fly like in this example:
+
+```
+fun f() { while true { g(); } }
+fun g() { /* do something */ }
+```
+
+Let's say the functions `f` and `g` were never executed before.
+Now some function invokes `f`, so we need to generate machine code for that function but we don't have an address or machine code for `g` right now.
+What I do in these cases, is to emit machine code for a *normal* function but instead of calling `g`, I invoke a special compile stub.
+This compile stub then figures out which call site it is invoked from and compiles the callee function and then executes it.
+It also patches the current call site to directly invoke the compiled function instead of the compile stub for future invocations.
+For `f` this means that in the first iteration of the `while`-loop `g` needs to be compiled, from the second iteration on we can directly invoke `g`.
+I want to describe this mechanism in more detail in a later blog post.
+
+As soon as you have function calls there are so many more interesting things you can try to implement: determine the stack trace, throw and catch exceptions, determine a root set for garbage collection, etc.
+I always thought: "Cool, I've implement X so Y should also be within reach, let's try to implement it."
+
+Instead of using an already existing language, I could've also used an intermediate representation or bytecode like WASM or Java Bytecode.
+This would've meant that I could get a lot of benchmarks for my JIT and I could for example easily compare results to other VMs.
+To be honest today this sounds a lot more feasible then it was back then.
+There are so many features you need to implement to run any non-trivial benchmark, I didn't think it was feasible to run any non-trivial program.
+A big obstacle in writing complex benchmarks for Dora is the missing standard library: This could've been solved by using e.g. Classpath or OpenJDK.
+So this might have been easier, but still it was certainly also interesting to "design" a programming language.
+If I think about it, WASM is probably not ideal right now since I also wanted to look into garbage collection.
 
 ### Supported Features
 So what are the features Dora actually supports?
@@ -112,45 +161,11 @@ My implementation is a bit easier since Dora doesn't have interfaces or dynamica
 ### Garbage Collection
 
 Dora has an exact, tracing [Garbage Collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection).
-The GC's implementation is pretty simple: it uses a mark & sweep algorithm.
-Each object stores a flag that the GC needs for bookkeeping.
-The flag determines if the object is marked or unmarked respectively reachable or unreachable.
-We only need this flag while collecting garbage.
+For an tracing GC to work, it is essential to determine the root set.
+The root set is the initial set of objects for object graph traversal.
+The set usually consists of global variables and/or local variables.
 
-Mark & sweep is separated into two phases:
-*Marking* is the first phase that recursively marks all reachable objects, while *Sweeping* `free`s all unmarked (=unreachable) objects in the second phase.
-If you don't know how Mark & Sweep works, there is a nice GIF on [Wikipedia](https://en.wikipedia.org/wiki/Tracing_garbage_collection#Na.C3.AFve_mark-and-sweep) that shows how it works.
-Marking one object means setting the mark-flag and recursively traversing through all subobjects and marking them too.
-A nice property of the marking phase is that cycles in the object graph are no problem.
-On the other hand you need to be careful to avoid stack overflows when you have deeply nested object graphs, so you probably shouldn't implement marking through an recursive function call.
-That's the reason I just add the objects into a [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html) instead of using the stack.
-When sweeping, the garbage collector simply runs through all allocated objects and frees unmarked objects.
-
-The GC really just uses libc's `malloc` for allocating objects and `free` while *Sweeping*.
-All allocated objects are connected in a single linked list.
-For this to work, each object has an additional storage for the pointer to the next allocated object in the object header.
-While this increases the size of every object, we don't need to keep track of all objects in some external data structure.
-Since all collected objects are part of this linked list, the *Sweeping* phase can run through all objects and free those that are not marked.
-When the collector frees a object, it also gets removed from the linked list.
-
-For exact GC to work, it is also essential to determine the root set.
-The root set is the initial set of objects that gets marked in the marking phase.
-
-```rust
-fn collect_garbage() {
-    for root in root_set {
-        mark(root);
-    }
-
-    sweep();
-}
-```
-
-The set usually consists of global variables, static fields and/or local variables
-(but keep in mind that Dora doesn't have global variables or static fields right now).
-Within Dora string literals are also part of the root set, otherwise the GC would just free a String object that is still referenced in a compiled function.
-
-The toughest part while gathering the root set is retrieving local variables.
+While it is quite easy to add global variables to the root set, this is much hard for local variables.
 For this we need working stack unwinding, Dora needs to examine the active functions on the stack.
 Although we then know all local variables in these functions, there is one more complication:
 
@@ -170,18 +185,62 @@ For determining local variables we also need to know where in a function we curr
 The Dora function `foo` has two local variables, but when invoking `bar1` only `x` is initialized.
 At this point there is already space reservered for `y` but the memory is still uninitialized and contains some random value.
 `y` shouldn't be part of the root set at that point.
-When invoking `bar2` both `x` and `y` are initialized and therefore belong to the root set.
+When invoking `bar2` both `x` and `y` are initialized and therefore both belong to the root set.
 
 The baseline compiler keeps track of initialized local variables and emits so called GC points for each function invocation.
 The GC point stores which local variables are initialized.
 Now there is enough information to collect all local variables from the stack.
 To be more precise Dora not only keeps track of local variables but also of temporary values, fortunately temporary values can just be treated like local variables.
 
-To test garbage collection, I added a command line flag `--gc-stress` that forces garbage collection at every allocation.
-There is also a function `forceCollect` that immediately forces garbage collection, that can be called from Dora code.
+My first implementation of the GC was a Mark&Sweep collector which simply used `malloc` for object allocation and `free` for object deallocation.
+The marking phase marked every object that was reachable. The sweeping phase afterwards invoked `free` for every object that wasn't marked.
+The problem with this implementation was to keep track of all allocated objects: the whole heap was a single linked-list.
+Each object had an additional word to store the pointer to the next object.
+This increased object sizes but also made traversing the heap quite cache-inefficient.
+`malloc` & `free` are also quite expensive. I don't want to say they are slow, they are not. But within a managed heap we can do better.
+
+That's why I wrote a simple Copy Collector.
+A copy collector divides a heap into two equally-sized spaces: the *from* and *to* space.
+Objects are always allocated in the *from* space, by increasing a pointer that points to the next free memory by the object size.
+As soon as this pointer reaches the end of the space, all surviving objects are copied from the *from* space to the *to* space.
+All live objects are now in the *to* space, the *from* space now only contains garbage.
+The spaces then switch roles.
+Deallocation of unreachable/dead objects is not necessary.
+
+I liked that I could implement this collector in less than 200 lines of code and it is also quite performant for the amount of work that went into it.
+The GC Handbook recommends this algorithm if your goal is just to have a decent and working GC and not the best performance.
+The obvious disadvantage of this collector type is that 50% of the heap are unusable.
+Copying live objects can be quite expensive too if a lot of objects survive.
+These disadvantages also explain why a copy collector is quite common in the young generation of many garbage collectors.
+The young generation is only a part of the heap, so not that much memory is unusable.
+And if a program fulfills the generational hypothesis (that means most objects die young), copying should also be quite cheap.
+
+For me there was another property of copy collectors that was really important: it is moving objects to other memory locations.
+Since the address of an object can change I need to update global variables and local variables in the root set to point to the new address of the object at a garbage collection.
+This gave me more confidence that my root set was actually correct.
+
+I added a flag `--gc-stress` that forces a collection at every single allocation.
+This is horribly inefficient but was invaluable for testing my implementation.
+You might also force a garbage collection by invoking `forceCollect()` from Dora.
+
+Another interesting problem for the GC are references into the heap from native code.
+Imagine a native function like that:
+
+```
+fn allocateObject() {
+  obj1 = gc.allocateObj();
+  obj2 = gc.allocateObj();
+
+  // do something with obj1 and obj2
+}
+```
+
+The second object allocation might cause a garbage collection.
+If this is the case the first object is not part of the root set since only a local variable in native code references this object.
+Dora doesn't have any knowledge about stack frames and local variables of native Rust code.
 
 ### Benchmark
-I can't stop without showing some benchmark results.
+I can't stop writing this blog without showing some benchmark results.
 There are two microbenchmarks Dora could run from the [Language Benchmarks Game](http://benchmarksgame.alioth.debian.org/): [fannkuch-redux](https://github.com/dinfuehr/dora/tree/master/bench/fannkuchredux) and [binarytrees](https://github.com/dinfuehr/dora/tree/master/bench/binarytrees).
 I chose the fastest single-threaded Java implementation (dora does not support multi-threading yet) of these benchmarks and translated them to Dora.
 
