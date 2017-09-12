@@ -1,7 +1,6 @@
 +++
-date = "2017-01-04T08:34:34+01:00"
+date = "2017-09-12T08:34:34+01:00"
 title = "Dora: Implementing a JIT-compiler with Rust"
-draft = true
 
 +++
 
@@ -19,7 +18,7 @@ The baseline compiler is a method-based compiler and not a [tracing JIT](https:/
 The purpose of the baseline compiler in Dora is to generate code as fast as possible, not to generate the most efficient code.
 The sooner it finishes code generation, the sooner execution can start.
 
-Many VMs like the JVM pair the baseline compiler with one or more optimizing compilers that compile functions to more efficient machine-code if it detects a function to be hot.
+Many VMs like the OpenJDK or V8 pair the baseline compiler (or interpreter) with one or more optimizing compilers that compile functions to more efficient machine-code if it detects a function to be hot.
 The optimizing compiler needs longer to compile a given function, but generates more optimized machine-code.
 This is acceptable since not all code gets compiled by the optimizing compiler but only hot code/functions.
 Dora doesn't have an optimizing compiler at the moment.
@@ -105,7 +104,7 @@ But why didn't I use an already existing language?
 The main reason: I didn't intend to implement that many features into the language.
 All I wanted was a simple, staticaly typed language which I could easily generate machine code for.
 
-My original intention was to write a simple JIT-compiler to better understand how they work internally.
+My original intention was to write a simple JIT-compiler to better understand how JITs work internally.
 I was specificly interested in how the JIT compiles functions on-the-fly like in this example:
 
 ```
@@ -122,21 +121,15 @@ For `f` this means that in the first iteration of the `while`-loop `g` needs to 
 I want to describe this mechanism in more detail in a later blog post.
 
 As soon as you have function calls there are so many more interesting things you can try to implement: determine the stack trace, throw and catch exceptions, determine a root set for garbage collection, etc.
-I always thought: "Cool, I've implement X so Y should also be within reach, let's try to implement it."
+I always thought: "Cool, I've implement X so Y shouldn't be that hard anymore, let's try to implement it."
 
 Instead of using an already existing language, I could've also used an intermediate representation or bytecode like WASM or Java Bytecode.
-This would've meant that I could get a lot of benchmarks for my JIT and I could for example easily compare results to other VMs.
+This would've meant that I could get a lot of benchmarks for my JIT and I could easily compare results to other VMs.
 To be honest today this sounds a lot more feasible then it was back then.
 There are so many features you need to implement to run any non-trivial benchmark, I didn't think it was feasible to run any non-trivial program.
 A big obstacle in writing complex benchmarks for Dora is the missing standard library: This could've been solved by using e.g. Classpath or OpenJDK.
 So this might have been easier, but still it was certainly also interesting to "design" a programming language.
 If I think about it, WASM is probably not ideal right now since I also wanted to look into garbage collection.
-
-### Supported Features
-So what are the features Dora actually supports?
-
-Dora compiles functions on-demand, functions are not compiled if not executed.
-I want to describe this mechanism in more detail in a later blog post.
 
 Exceptions can be thrown with `throw`, while `do`, `catch` and `finally` can be used to catch exceptions.
 Doras exception handling is similar to [Swift](https://developer.apple.com/library/content/documentation/Swift/Conceptual/Swift_Programming_Language/ErrorHandling.html), all functions that can throw exceptions need to be marked with `throws`:
@@ -151,7 +144,7 @@ I like this syntax because it makes it obvious in the caller that an exception c
 For runtime errors like failed assertions, the program is halted and the current stack trace is printed.
 Although exceptions and stack traces sound quite unspectacular, I was quite happy when this worked for the first time.
 
-Dora even supports classes and inheritance.
+Dora also supports inheritance for classes.
 It has [primary](https://github.com/dinfuehr/dora/blob/master/tests/pctor1.dora) and [secondary](https://github.com/dinfuehr/dora/blob/master/tests/ctor3.dora) constructors like [Kotlin](https://kotlinlang.org/docs/reference/classes.html).
 The keyword [`is`](https://github.com/dinfuehr/dora/blob/master/tests/is1.dora) is similar to Javas `instanceof`, while [`as`](https://github.com/dinfuehr/dora/blob/master/tests/as1.dora) is used for the checked cast (in Java you would write `(SomeClass) obj` for that).
 I implemented this check as described in this great [paper](https://www.researchgate.net/publication/221552851_Fast_subtype_checking_in_the_HotSpot_JVM) from Cliff Click and John Rose.
@@ -219,17 +212,17 @@ For me there was another property of copy collectors that was really important: 
 Since the address of an object can change I need to update global variables and local variables in the root set to point to the new address of the object at a garbage collection.
 This gave me more confidence that my root set was actually correct.
 
-I added a flag `--gc-stress` that forces a collection at every single allocation.
+I added a flag `--gc-stress` which forces a collection at every single allocation.
 This is horribly inefficient but was invaluable for testing my implementation.
 You might also force a garbage collection by invoking `forceCollect()` from Dora.
 
 Another interesting problem for the GC are references into the heap from native code.
 Imagine a native function like that:
 
-```
-fn allocateObject() {
-  obj1 = gc.allocateObj();
-  obj2 = gc.allocateObj();
+```rust
+fn some_native_function() {
+  let obj1: *const Obj = gc.allocate_object();
+  let obj2: *const Obj = gc.allocate_object();
 
   // do something with obj1 and obj2
 }
@@ -237,7 +230,34 @@ fn allocateObject() {
 
 The second object allocation might cause a garbage collection.
 If this is the case the first object is not part of the root set since only a local variable in native code references this object.
-Dora doesn't have any knowledge about stack frames and local variables of native Rust code.
+Dora doesn't have any knowledge about stack frames and local variables of native Rust code and will never have.
+The object wouldn't survice the collection, but even if it would, `obj` would point at the wrong address (the copy collector moves all surviving objects).
+So we somehow need to add this object to the root set.
+We also can't store a direct pointer to the object and add a layer of indirection.
+To solve this I added I added a data structure `HandleMemory` and a type `Rooted<T>` that stores an indirect pointer to an object.
+The native function from above now looks like this:
+
+```rust
+fn some_native_function() {
+  let obj1: Rooted<Obj> = root(gc.allocate_object());
+  let obj2: Rooted<Obj> = root(gc.allocate_object());
+
+  // do something with obj1 and obj2
+}
+```
+
+`HandleMemory` is used to store *direct* pointers into the heap, all entries are automatically part of the root set.
+`Rooted<Obj>` is a pointer to an entry in the handle memory and therefore the *indirect* pointer.
+The function `root` stores the *direct* pointer in `HandleMemory` and returns an indirect pointer for it.
+This solves heap references from local variables in native code into the heap.
+`HandleMemory` is cleaned up when the native code returns to the Dora code.
+This makes it invalid to retain these indirect pointers by storing it in some global variable.
+
+Actually the whole integration between the GC or the JIT and native code is quite interesting.
+Right now I am working again to improve the GC.
+My first goal here is to write a generational GC called *Swiper*.
+This should make GC pauses way shorter than with the current Copy GC.
+I also have other improvements in mind: incremental marking, Thread-Local Allocation Buffer, etc.
 
 ### Benchmark
 I can't stop writing this blog without showing some benchmark results.
@@ -287,11 +307,24 @@ We see that Dora spends 17 seconds alone for collecting garbage, this benchmarks
 At first I also wanted to benchmark allocation duration but this was way too expensive.
 Just by removing those `time::precise_time_ns` invocations reduced run-time from 110s to 55s.
 
+### Optimizing Compiler
+Another feature I want to implement is an optimizing compiler for Dora.
+This would probably improve almost every benchmark.
+I think that Dora is already expressive enough to write the optimizing compiler in Dora instead of Rust.
+This could also be a great test case for Dora.
+The baseline compiler emits machine code from the AST, which are quite a lot of different Rust data structures.
+I suppose it would be quite cumbersome to pass the Rust AST to Dora.
+Therefore I would first emit byte code in Rust, and then simply pass the byte code array to Dora.
+This should be way easier.
+I would then have a "sea of nodes" IR in Dora on which I could do all my optimizations.
+That said this is probably going to take some time.
+Nevertheless I am already looking forward to that.
+
 ### Using Rust
 A few words on using Rust: I started the project to try out Rust on a non-trivial project.
 I knew some Rust but hadn't used it on a project before.
 Both `cargo` and `rustup` are great tools.
-They also work on my Odroid C2 where I implemented AArch64 support.
+They also work on my Odroid C2 where I implemented the support for AArch64t.
 Cross-compiling became pretty easy, although I just used it for making sure Dora still builds on AArch64
 (I never bothered to try to get it to link).
 Cross-building is as simple as `cargo build --target=aarch64-unknown-linux-gnu`.
