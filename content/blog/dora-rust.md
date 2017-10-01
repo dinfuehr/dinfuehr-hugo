@@ -20,7 +20,7 @@ The baseline compiler is a method-based compiler and not a [tracing JIT](https:/
 The purpose of the baseline compiler in Dora is to generate code as fast as possible, not to generate the most efficient code.
 The sooner it finishes code generation, the sooner execution can start.
 
-Many VMs like the OpenJDK or V8 pair the baseline compiler (or interpreter) with one or more optimizing compilers that compile functions to more efficient machine-code if it detects a function to be hot.
+Many VMs like the OpenJDK or V8 pair the baseline compiler (and/or interpreter) with one or more optimizing compilers that compile functions to more efficient machine-code if it detects a function to be hot.
 The optimizing compiler needs longer to compile a given function, but generates more optimized machine-code.
 This is acceptable since not all code gets compiled by the optimizing compiler but only hot code/functions.
 Dora doesn't have an optimizing compiler at the moment, but I have plans to implement one.
@@ -78,7 +78,7 @@ Dora is still missing a lot, I planned to add more but writing a JIT is more tha
 Instead of adding more syntactic sugar, I preferred to implement features that are more interesting to implement in the JIT.
 
 Nevertheless Dora alredy has quite a large number of features.
-This are the supported primtive types: `bool`, `byte`, `char`, `int`, `long`, `float`, `double`.
+This are the supported primitive types: `bool`, `byte`, `char`, `int`, `long`, `float`, `double`.
 It is also possible to define your own classes (with inheritance) just like Java/Kotlin/etc.
 
 ```
@@ -103,7 +103,7 @@ All I wanted was a simple, staticaly typed language which I could easily generat
 
 Instead of using an already existing language, I could've also used an intermediate representation or bytecode like WASM or Java Bytecode.
 This would've meant that I could get a lot of benchmarks for my JIT and I could easily compare results to other VMs.
-To be honest today this sounds a lot more feasible than it was back then.
+To be honest, today this sounds a lot more feasible than it was back then.
 There are so many features you need to implement to run any non-trivial benchmark, I didn't think it was feasible to run any non-trivial program.
 A big obstacle in writing complex benchmarks for Dora is the missing standard library: This could've been solved by using e.g. Classpath or OpenJDK.
 So this might have been easier, but still it was certainly also interesting to "design" a programming language.
