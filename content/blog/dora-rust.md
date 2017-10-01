@@ -277,7 +277,7 @@ Dora just needs to emit such lines for every jitted function.
 What can we conclude from this performance analysis?
 According to the measurements, mutex locking & unlocking takes a large part of the runtime (~25%).
 Right now, allocation happens in a mutex (even though Dora is still single-threaded).
-I plan to get rid of this with my new generational collector.
+I plan to get rid of this with my new generational collector, this should give a nice speedup.
 But for now I will leave it as it is.
 
 What also shows up in the profile are the functions `start_native_call` and `finish_native_call` (8-9% of the runtime).
