@@ -164,7 +164,7 @@ The GC point stores which local variables are initialized.
 Now there is enough information to collect all local variables from the stack.
 To be more precise Dora not only keeps track of local variables but also of temporary values, fortunately temporary values can just be treated like local variables.
 
-My first implementation of the GC was a [Mark & Sweep](https://en.wikipedia.org/wiki/Tracing_garbage_collection#Na.C3.AFve_mark-and-sweep) collector which simply used `malloc` for object allocation and `free` for object deallocation.
+My first implementation of the GC was a [Mark-and-Sweep](https://en.wikipedia.org/wiki/Tracing_garbage_collection#Na.C3.AFve_mark-and-sweep) collector which simply used `malloc` for object allocation and `free` for object deallocation.
 The marking phase marked every object that was reachable. The sweeping phase afterwards invoked `free` for every object that wasn't marked.
 The problem with this implementation was to keep track of all allocated objects: the whole heap was a single linked-list.
 Each object had an additional word to store the pointer to the next object.
@@ -189,8 +189,9 @@ These disadvantages also explain why a copy collector is quite common in the you
 For one the young generation is only a (small?) part of the heap, so not that much memory is unusable.
 Furthermore if a program fulfills the generational hypothesis (that means most objects die young), copying should also be quite cheap.
 
-For me there was another property of copy collectors that was really important: it is moving objects to other memory locations.
+For me there was another property of copy collectors that was really important: moving objects.
 Since the address of an object can change I need to update global variables and local variables in the root set to point to the new address of the object while collecting garbage.
+My initial Mark-and-Sweep-GC didn't move any object.
 This gave me more confidence that my root set was actually correct and updating references was working.
 
 I added a flag `--gc-stress` which forces a collection at every single allocation.
