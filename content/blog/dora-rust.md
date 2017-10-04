@@ -73,9 +73,9 @@ fun main() {
 ```
 
 Dora is a custom-language with similarities to languages like Java, Kotlin and Rust (for Rust it is only syntactical).
-Most important: Dora is statically-typed and garbage collected.
+Most importantly: Dora is statically-typed and garbage collected.
 Dora is still missing a lot, I planned to add more but writing a JIT is more than enough work.
-Instead of adding more syntactic sugar, I preferred to implement features that are more interesting to implement in the JIT.
+Instead of adding more syntactic sugar, I preferred to implement features that were more interesting to implement in the JIT.
 
 Nevertheless Dora alredy has quite a large number of features.
 This are the supported primitive types: `bool`, `byte`, `char`, `int`, `long`, `float`, `double`.
@@ -133,7 +133,7 @@ My implementation is a bit easier since Dora doesn't have interfaces or dynamica
 ### Garbage Collection
 
 Dora has an exact, tracing [Garbage Collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection).
-For an tracing GC to work, it is essential to determine the root set.
+For a tracing GC to work, it is essential to determine the root set.
 The root set is the initial set of objects for object graph traversal.
 The set usually consists of global variables and/or local variables.
 
@@ -190,7 +190,7 @@ For one the young generation is only a (small?) part of the heap, so not that mu
 Furthermore if a program fulfills the generational hypothesis (that means most objects die young), copying should also be quite cheap.
 
 For me there was another property of copy collectors that was really important: moving objects.
-Since the address of an object can change I need to update global variables and local variables in the root set to point to the new address of the object while collecting garbage.
+Since the address of an object can change, global variables and local variables in the root set need to be updated to point to the new address of the object while collecting garbage.
 My initial Mark-and-Sweep-GC didn't move any object.
 This gave me more confidence that my root set was actually correct and updating references was working.
 
@@ -233,7 +233,7 @@ The function `root` stores the *direct* pointer it gets from the object allocati
 This solves heap references from local variables in native code into the heap.
 `HandleMemory` is cleaned up when the native code returns to Dora code.
 This makes it invalid to retain these indirect pointers by storing it in some global variable.
-If I should need have a need for this later, I would need to add some kind of *global references*.
+If I should have a need for this later, I would need to add some kind of *global references*.
 
 Actually the whole integration between the GC or JIT and native code is quite interesting.
 Right now I am working again to improve the GC.
@@ -242,7 +242,7 @@ This should make GC pauses way shorter than with the current Copy GC.
 I also have other improvements in mind: incremental marking, Thread-Local Allocation Buffer, etc.
 
 ### Benchmarks
-I can't stop writing this blog without showing some benchmark results.
+I can't finish writing this blog without showing some benchmark results.
 There are at least two microbenchmarks Dora is able to run right now from the [Language Benchmarks Game](http://benchmarksgame.alioth.debian.org/): [fannkuch-redux](https://github.com/dinfuehr/dora/tree/master/bench/fannkuchredux) and [binarytrees](https://github.com/dinfuehr/dora/tree/master/bench/binarytrees).
 I chose the fastest single-threaded Java implementation (dora does not support multi-threading yet) of these benchmarks and translated them to Dora.
 
@@ -282,9 +282,10 @@ I plan to get rid of this with my new generational collector, this should give a
 But for now I will leave it as it is.
 
 What also shows up in the profile are the functions `start_native_call` and `finish_native_call` (8-9% of the runtime).
-Those function are called before respectively after a native call.
-This is overhead we have for calling native functions from Dora.
-Performance can be improved by inlining the allocation directly into the generated code.
+Calling a native function is more expensive than calling a *normal* Dora function.
+`start_native_call` and `finish_native_call` do the necessary setup- and cleanup-work for calling a native function.
+Object allocation is the only native function regularly invoked in this benchmark.
+By inlining the object allocation, we can get rid of the native function calling overhead.
 I need working Thread-Local Allocation Buffers (TLABs) in my GC for that, Swiper should enable that optimization.
 
 ### Optimizing Compiler
