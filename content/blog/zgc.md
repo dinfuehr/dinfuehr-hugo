@@ -5,10 +5,11 @@ draft = false
 
 +++
 
-[ZGC](http://cr.openjdk.java.net/~pliden/zgc/) is a new garbage collector recently open-sourced by Oracle for the OpenJDK mainly written by [Per Liden](https://twitter.com/perliden).
+[ZGC](http://cr.openjdk.java.net/~pliden/zgc/) is a new garbage collector recently open-sourced by Oracle for the OpenJDK.
+It was mainly written by [Per Liden](https://twitter.com/perliden).
 ZGC is similar to [Shenandoah](https://wiki.openjdk.java.net/display/shenandoah/Main) or Azul's C4 that focus on reducing pause-times while still [compacting](https://en.wikipedia.org/wiki/Mark-compact_algorithm) the heap.
 Although I won't give a full introduction here, "compacting the heap" just means moving the still-alive objects to the start (or some other region) of the heap.
-This helps to reduce fragmentation but usually this also means that the whole application (that means all of its threads) needs to be halted while the GC does its magic, this is usually referred to as *stopping the world*.
+This helps to reduce fragmentation but usually this also means that the whole application (that includes all of its threads) needs to be halted while the GC does its magic, this is usually referred to as *stopping the world*.
 Only when the GC is finished, the application can be resumed.
 In GC literature the application is often called *mutator*, since from the GC's point of view the application mutates the heap.
 Depending on the size of the heap such a pause could take several seconds, which could be quite problematic for interactive applications.
@@ -21,6 +22,11 @@ There are several ways to reduce pause times:
 * Go's GC simply deals with it by not compacting the heap at all.
 
 As already mentioned ZGC does concurrent compaction, this is certainly not a simple feature to implement so I want to describe how this works.
+Why is this complicated?
+
+* You need to copy an object to another memory address, at the same time another heap could read from or write into the old object.
+* If copying succeeded there might still be arbitrary many references somewhere in the heap to the old object address that need to be updated to the new address.
+
 I should also mention that although concurrent compaction seems to be the best solution of the alternatives given above, there are definitely some tradeoffs involved.
 So if you don't care about pause times, you might be better off using a GC that focuses on throughput instead.
 
@@ -125,7 +131,7 @@ ZGC allocates a forwarding table for each page in the relocation set.
 The forwarding table is basically a hash map that stores the address an object has been relocated to (if the object has already been relocated).
 
 The advantage with ZGC's approach is that we only need to allocate space for the forwarding pointer for pages in the relocation set.
-Shenandoah in comparison stores the forwarding pointer in the object itself for each and every object, which has a certain memory usage overhead.
+Shenandoah in comparison stores the forwarding pointer in the object itself for each and every object, which has some memory overhead.
 
 The GC threads walk over the live objects in the relocation set and relocate all those objects that haven't been relocated yet.
 It could even happen that an application thread and a GC thread try to relocate the same object at the same time, in this case the first thread to relocate the object wins.
@@ -150,7 +156,7 @@ ZGC doesn't need store/write-barriers for `obj.field = someOtherObj`.
 Depending on the stage the GC is currently in (stored in the global variable [ZGlobalPhase](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zGlobals.cpp#l27)), the barrier either marks the object or relocates it if the reference isn't already marked or *remapped*.
 
 The global variables [ZAddressGoodMask](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zGlobals.cpp#l33) and [ZAddressBadMask](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zGlobals.cpp#l34) store the mask that determines if a reference is already considered good (that means already marked or remapped/relocated) or if there is still some action necessary.
-These variables are only changed at the start of marking- and relocation-phase and both at the same [time](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zAddress.cpp#l31).
+These variables are only changed at the start of marking- and relocation-phase and both at the [same time](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zAddress.cpp#l31).
 This table from ZGC's [source](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zGlobals.hpp#l99) gives a nice overview in which state these masks can be:
 
 ```
