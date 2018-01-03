@@ -47,8 +47,8 @@ ZGC needs a read barrier but no write barrier.
 For concurrent compaction I haven't seen a solution without read barriers.
 
 Another factor to consider:
-Even if a GC needs barriers, they might "only" be required when reading or writing references in the heap.
-Reading or writing primitives like `int` or `double` might not require a barrier.
+Even if a GC needs some type of barrier, they might "only" be required when reading or writing references in the heap.
+Reading or writing primitives like `int` or `double` might not require the barrier.
 
 ### Pointer tagging
 ZGC stores additional [metadata](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/os_cpu/linux_x86/zGlobals_linux_x86.hpp#l59) in heap references, on x64 a reference is 64-bit wide (ZGC doesn't support compressed oops or class pointers at the moment).
