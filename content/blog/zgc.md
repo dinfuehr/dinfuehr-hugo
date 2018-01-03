@@ -1,11 +1,11 @@
 +++
 date = "2017-04-20T20:33:37+02:00"
 title = "A first look into ZGC"
-draft = true
+draft = false
 
 +++
 
-[ZGC](http://cr.openjdk.java.net/~pliden/zgc/) is a new garbage collector recently open-sourced by Oracle for the OpenJDK.
+[ZGC](http://cr.openjdk.java.net/~pliden/zgc/) is a new garbage collector recently open-sourced by Oracle for the OpenJDK mainly written by [Per Liden](https://twitter.com/perliden).
 ZGC is similar to [Shenandoah](https://wiki.openjdk.java.net/display/shenandoah/Main) or Azul's C4 that focuses on reducing pause-times while still [compacting](https://en.wikipedia.org/wiki/Mark-compact_algorithm) the heap.
 Although I won't give a full introduction here, "compacting the heap" just means moving the still-alive objects to the start (or some other region) of the heap.
 This helps to reduce fragmentation but usually this also means that the whole application (that means all of its threads) needs to be halted while the GC does its magic, this is usually referred to as *stopping the world*.
