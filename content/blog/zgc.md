@@ -218,4 +218,4 @@ This should get better quite fast when most references are healed.
 ### Conclusion
 I hope I could give a short introduction into ZGC.
 I certainly couldn't describe every detail about this GC in a single blog post.
-If you need more information, ZGC is [open-source](http://cr.openjdk.java.net/~pliden/zgc/), so you can study its whole implementation.
+If you need more information, ZGC is [open-source](http://cr.openjdk.java.net/~pliden/zgc/), so it is possible to study the whole implementation.
