@@ -24,10 +24,10 @@ There are several ways to reduce pause times:
 As already mentioned ZGC does concurrent compaction, this is certainly not a simple feature to implement so I want to describe how this works.
 Why is this complicated?
 
-* You need to copy an object to another memory address, at the same time another heap could read from or write into the old object.
+* You need to copy an object to another memory address, at the same time another thread could read from or write into the old object.
 * If copying succeeded there might still be arbitrary many references somewhere in the heap to the old object address that need to be updated to the new address.
 
-I should also mention that although concurrent compaction seems to be the best solution of the alternatives given above, there are definitely some tradeoffs involved.
+I should also mention that although concurrent compaction seems to be the best solution to reduce pause time of the alternatives given above, there are definitely some tradeoffs involved.
 So if you don't care about pause times, you might be better off using a GC that focuses on throughput instead.
 
 ### Pointer tagging
