@@ -30,6 +30,26 @@ Why is this complicated?
 I should also mention that although concurrent compaction seems to be the best solution to reduce pause time of the alternatives given above, there are definitely some tradeoffs involved.
 So if you don't care about pause times, you might be better off using a GC that focuses on throughput instead.
 
+### GC barriers
+The key to understanding how ZGC does concurrent compaction is the *load barrier* (often called *read barrier* in GC literature).
+Although I have an [own section](#load-barrier) about ZGC's load-barrier, I want to give a short overview since not all readers might be familiar with them.
+If a GC has load-barriers, the GC needs to do some additional action when reading a reference from the heap.
+Basically in Java every time you see some code like `obj.field`.
+A GC could also need a *write/store-barrier* for operations like `obj.field = value`.
+Both operations are special since they read from or write into the heap.
+The names are a bit confusing, but GC barriers are different from [memory barriers](https://en.wikipedia.org/wiki/Memory_barrier) for the CPU.
+
+Both reading and writing in the heap is extremely common, so both GC-barriers need to be super efficient.
+That means just a few assembly instructions in the common case.
+Read barriers are an order of magnitude more likely than write-barriers (although this can certainly vary depending on the application), so read-barriers are even more performance-sensitive.
+Generational GC's for example usually get by with just a write barrier, no read barrier needed.
+ZGC needs a read barrier but no write barrier.
+For concurrent compaction I haven't seen a solution without read barriers.
+
+Another factor to consider:
+Even if a GC needs barriers, they might "only" be required when reading or writing references in the heap.
+Reading or writing primitives like `int` or `double` might not require a barrier.
+
 ### Pointer tagging
 ZGC stores additional [metadata](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/os_cpu/linux_x86/zGlobals_linux_x86.hpp#l59) in heap references, on x64 a reference is 64-bit wide (ZGC doesn't support compressed oops or class pointers at the moment).
 48-bit of those 64-bit can actually be used for [virtual memory addresses on x64](https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details).
@@ -137,7 +157,11 @@ The GC threads walk over the live objects in the relocation set and relocate all
 It could even happen that an application thread and a GC thread try to relocate the same object at the same time, in this case the first thread to relocate the object wins.
 ZGC uses an atomic [CAS](https://en.wikipedia.org/wiki/Compare-and-swap)-operation to determine a winner.
 
-The relocation phase is finished as soon as the GC threads have finished walking the relocation set.
+While not marking the [load-barrier](#load-barrier) relocates or remaps all references loaded from the heap.
+That ensure that every new reference the mutator sees, already points to the newest copy of an object.
+Remapping an object means looking up the new object address in the forwarding table.
+
+The relocation phase is finished as soon as the GC threads are finished walking the relocation set.
 Although that means all objects have been relocated, there will generally still be references into the relocation set, that need to be *remapped* to their new addresses.
 These reference will then be healed by trapping load-barriers or if this doesn't happen soon enough by the next marking cycle.
 That means marking also needs to inspect the forward table to *remap* (but not relocate - all objects are guaranteed to be relocated) objects to their new addresses.
@@ -149,9 +173,9 @@ If the new marking phase would use the same marking bit, the load-barrier would 
 
 ### Load-Barrier
 ZGC needs a so called load-barrier (also referred to as read-barrier) when reading a reference from the heap.
-We need to insert this load-barrier each time the Java-Code accesses a field of object type, e.g. `obj.field`.
-Accessing fields of some other primitive type doesn't need a barrier, e.g. `obj.anInt` or `obj.anDouble`.
-ZGC doesn't need store/write-barriers for `obj.field = someOtherObj`.
+We need to insert this load-barrier each time the Java program accesses a field of object type, e.g. `obj.field`.
+Accessing fields of some other primitive type do not need a barrier, e.g. `obj.anInt` or `obj.anDouble`.
+ZGC doesn't need store/write-barriers for `obj.field = someValue`.
 
 Depending on the stage the GC is currently in (stored in the global variable [ZGlobalPhase](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zGlobals.cpp#l27)), the barrier either marks the object or relocates it if the reference isn't already marked or *remapped*.
 
