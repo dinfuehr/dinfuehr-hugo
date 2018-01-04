@@ -215,6 +215,24 @@ The good reference also needs to be stored into register `rax`, such that execut
 Since every single reference needs to be marked or relocated, throughput is likely to decrease right after starting a marking- or relocation-phase.
 This should get better quite fast when most references are healed.
 
+### Stop-the-World Pauses
+ZGC doesn't get rid of stop-the-world pauses completely.
+The collector needs pauses when [starting marking](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zDriver.cpp#l304), [ending marking](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zDriver.cpp#l316) and [starting relocation](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/share/gc/z/zDriver.cpp#l356).
+But this pauses are usually quite short - only a few milliseconds.
+
+When starting marking ZGC traverses all thread stacks to mark the applications root set.
+The root set is the set of object references from where traversing the object graph starts.
+It usually consists of local and global variables, but also other internal VM structures (e.g. JNI handles).
+
+Another pause is required when ending the marking phase.
+In this pause the GC needs to empty and traverse all thread-local marking buffers.
+Since the GC could discover a large unmarked graph this could take longer.
+ZGC tries to avoid this by stopping the end of marking phase after 1 millisecond.
+It returns into the concurrent marking phase until the whole graph is traversed, then the end of marking phase can be started again.
+
+Starting relocation phase pauses the application again.
+This phase is quite similar to starting marking, with the difference that this phase relocates the objects in the root set.
+
 ### Conclusion
 I hope I could give a short introduction into ZGC.
 I certainly couldn't describe every detail about this GC in a single blog post.
