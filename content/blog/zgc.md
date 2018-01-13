@@ -19,9 +19,9 @@ There are several ways to reduce pause times:
 * The GC can employ multiple threads while compacting (*parallel* compaction).
 * Compaction work can also be split across multiple pauses (*incremental* compaction).
 * Compact the heap concurrently to the running application without stopping it (or just for a short time) (*concurrent* compaction).
-* Go's GC simply deals with it by not compacting the heap at all.
+* No compaction of the heap at all (an approach taken by e.g. Go's GC).
 
-As already mentioned ZGC does concurrent compaction, this is certainly not a simple feature to implement so I want to describe how this works.
+ZGC uses concurrent compaction to keep pauses to a minimum, this is certainly not obvious to implement so I want to describe how this works.
 Why is this complicated?
 
 * You need to copy an object to another memory address, at the same time another thread could read from or write into the old object.
@@ -34,10 +34,10 @@ So if you don't care about pause times, you might be better off using a GC that 
 The key to understanding how ZGC does concurrent compaction is the *load barrier* (often called *read barrier* in GC literature).
 Although I have an [own section](#load-barrier) about ZGC's load-barrier, I want to give a short overview since not all readers might be familiar with them.
 If a GC has load-barriers, the GC needs to do some additional action when reading a reference from the heap.
-Basically in Java every time you see some code like `obj.field`.
+Basically in Java this happens every time you see some code like `obj.field`.
 A GC could also need a *write/store-barrier* for operations like `obj.field = value`.
 Both operations are special since they read from or write into the heap.
-The names are a bit confusing, but GC barriers are different from [memory barriers](https://en.wikipedia.org/wiki/Memory_barrier) for the CPU.
+The names are a bit confusing, but GC barriers are different from [memory barriers](https://en.wikipedia.org/wiki/Memory_barrier) used in CPUs or compilers.
 
 Both reading and writing in the heap is extremely common, so both GC-barriers need to be super efficient.
 That means just a few assembly instructions in the common case.
@@ -50,10 +50,12 @@ Another factor to consider:
 Even if a GC needs some type of barrier, they might "only" be required when reading or writing references in the heap.
 Reading or writing primitives like `int` or `double` might not require the barrier.
 
-### Pointer tagging
-ZGC stores additional [metadata](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/os_cpu/linux_x86/zGlobals_linux_x86.hpp#l59) in heap references, on x64 a reference is 64-bit wide (ZGC doesn't support compressed oops or class pointers at the moment).
-48-bit of those 64-bit can actually be used for [virtual memory addresses on x64](https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details).
-Although to be exact only 47-bit, since bit 47 determines the value of bits 48-63 (for our purpose those bits are all 0).
+### Reference coloring
+The key to understanding ZGC is reference coloring.
+ZGC stores additional [metadata](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/os_cpu/linux_x86/zGlobals_linux_x86.hpp#l59) in heap references.
+On x64 a reference is 64-bit wide (ZGC doesn't support compressed oops or class pointers at the moment), but today's hardware actually limits a reference to 48-bit for [virtual memory addresses](https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details).
+Although to be exact only 47-bit, since bit 47 determines the value of bits 48-63 (for our purpose those bits are always 0).
+
 ZGC reserves the first 42-bits for the actual address of the object (referenced to as *offset* in the source code).
 42-bit addresses give you a theoretical heap limitation of 4TB in ZGC.
 The remaining bits are used for these flags: `finalizable`, `remapped`, `marked1` and `marked0` (one bit is reserved for future use).
@@ -130,6 +132,10 @@ But it is quite easy to imagine a situation where we have 3 free pages with size
 There is enough free physical memory but unfortunately this memory is non-contiguous.
 ZGC is able to [map](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/os_cpu/linux_x86/zPhysicalMemoryBacking_linux_x86.cpp#l160) this non-contiguous physical pages to a single contiguous virtual memory space.
 If this wasn't possible, we would have run out of memory.
+
+On Linux the *physical* memory is basically an anonymous file that is only stored in RAM, ZGC uses [memfd_create](https://www.systutorials.com/docs/linux/man/2-memfd_create/) to create it.
+The file can then be extended with [ftruncate](https://www.systutorials.com/docs/linux/man/2-ftruncate/), ZGC is allowed to extend the physical memory (= the anonymous file) up to the maximum heap size.
+Physical memory is then [mmap](https://www.systutorials.com/docs/linux/man/2-mmap/)ed into the virtual address space.
 
 ### Marking & Relocating objects
 A collection is split into two major phases: marking & relocating.
