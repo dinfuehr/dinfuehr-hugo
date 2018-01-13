@@ -133,7 +133,7 @@ There is enough free physical memory but unfortunately this memory is non-contig
 ZGC is able to [map](http://hg.openjdk.java.net/zgc/zgc/file/59c07aef65ac/src/hotspot/os_cpu/linux_x86/zPhysicalMemoryBacking_linux_x86.cpp#l160) this non-contiguous physical pages to a single contiguous virtual memory space.
 If this wasn't possible, we would have run out of memory.
 
-On Linux the *physical* memory is basically an anonymous file that is only stored in RAM, ZGC uses [memfd_create](https://www.systutorials.com/docs/linux/man/2-memfd_create/) to create it.
+On Linux the *physical* memory is basically an anonymous file that is only stored in RAM (and not on disk), ZGC uses [memfd_create](https://www.systutorials.com/docs/linux/man/2-memfd_create/) to create it.
 The file can then be extended with [ftruncate](https://www.systutorials.com/docs/linux/man/2-ftruncate/), ZGC is allowed to extend the physical memory (= the anonymous file) up to the maximum heap size.
 Physical memory is then [mmap](https://www.systutorials.com/docs/linux/man/2-mmap/)ed into the virtual address space.
 
