@@ -9,7 +9,10 @@ The JVM supports a number of non-strong references: [SoftReference](https://docs
 The GC never frees objects that are strongly (or *normal*) reachable.
 If an object is only reachable through a non-strong reference then special rules apply.
 
-The easiest to explain is `WeakReference`: an object that is only reachable through a `WeakReference` is always considered garbage. `SoftReference` is
+The easiest to explain is the `WeakReference`: if an object is only reachable through a `WeakReference` it is always considered garbage.
+`SoftReference` is quite similar to `WeakReference`: if an object is only reachable via a soft reference and therefore not strongly marked it can be kept alive if the GC decides so, but the GC guarantees to free soft-reachable objects before running out of memory.
+A valid implementation could actually treat all soft references the same as weak references.
 
+`PhantomReference` iss
 
 The GC *knows* these classes and 
