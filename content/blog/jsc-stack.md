@@ -16,7 +16,7 @@ This convention is used by the interpreter, the baseline JIT and its optimizing 
 
 TODO: insert image here
 
-All arguments are passed on the stack, there is also some additional metadata passed as argument [1](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/interpreter/CallFrame.h?rev=238247#L78).
+All arguments are passed on the stack, there are also some [additional values](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/interpreter/CallFrame.h?rev=238247#L78) passed as argument.
 
 ### Calling JS-Functions from C++
 JSC's calling convention is quite different to the one used by C++.
@@ -25,6 +25,8 @@ That means that C++ can't directly call JS-Functions compiled by JSC - there nee
 TODO: insert image here
 
 In JSC this intermediate step is [vmEntryToJavaScript](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/llint/LowLevelInterpreter.asm?rev=238247#L1255) that is called by C++.
+It has a few duties:
+
 * allocates and initializes a [VMEntryRecord](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/interpreter/VMEntryRecord.h?rev=238247#L37) on the stack, that is later used for stack unwinding,
 * it pushes the arguments on the stack but also everything else that is required by JSC's calling convention,
 * executes the actual JS-Function,
@@ -68,7 +70,7 @@ It then returns to the caller-JS-Function.
 
 ### Stack Unwinding
 JS and C++-stack frames can be arbitrarily intertwined, JSC therefore needs a way to safely unwind the stack.
-JSC doesn't have any knowledge about C++-stack frames - it just skips that part of the stack at once (no matter how many actual C++-function that actual are).
+JSC doesn't have any knowledge about C++ stack frames - it just skips that part of the stack at once (no matter how many actual C++-function that actual are).
 For JS-function it is actual possible - and even required - to unwind function by function.
 
 TODO: insert image here
