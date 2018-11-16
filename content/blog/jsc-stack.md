@@ -1,7 +1,7 @@
 +++
 date = "2018-11-15T22:36:24+02:00"
 title = "Stack Unwinding in JavaScriptCore"
-draft = true
+draft = false
 
 +++
 
@@ -14,7 +14,7 @@ This document describes how JSC is still possible to unwind the stack.
 JSC uses its own calling-convention for JS-Functions.
 This convention is used by the interpreter, the baseline JIT and its optimizing compilers DFG and FTL, such that JS-functions emitted by different compilers are able to interoperate with each other.
 
-TODO: insert image here
+![JSC call frame](/images/jsc-callframe.png)
 
 All arguments are passed on the stack, there are also some [additional values](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/interpreter/CallFrame.h?rev=238247#L78) passed as argument.
 
@@ -22,7 +22,7 @@ All arguments are passed on the stack, there are also some [additional values](h
 JSC's calling convention is quite different to the one used by C++.
 That means that C++ can't directly call JS-Functions compiled by JSC - there needs to be an intermediate step.
 
-TODO: insert image here
+![JS call](/images/jsc-calljs.png)
 
 In JSC this intermediate step is [vmEntryToJavaScript](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/llint/LowLevelInterpreter.asm?rev=238247#L1255) that is called by C++.
 It has a few duties:
@@ -61,8 +61,11 @@ The first way is handled by `vmEntryToJavaScript`, the other one by [vmEntryToNa
 Again, note that `vmEntryToNative` is used when JS functions implemented in C++ are called from C++.
 
 ### Calling C++ from JS
-JS functions can also call native functions: there needs to be an additional intermediate step again.
+JS functions can also call back into the runtime (native functions) for certain operations: there needs to be an additional intermediate step again.
 [nativeCallTrampoline](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/llint/LowLevelInterpreter64.asm?rev=238247#L2126) does this translation, it passes the call frame (the `ExecState`-pointer) as a single argument to the C++-function.
+
+![JS call](/images/jsc-callc.png)
+
 It also stores the current call frame in [VM::topCallFrame](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/runtime/VM.h?rev=238247#L512), but we will later cover that in more detail.
 `nativeCallTrampoline` also obviously calls the native function.
 When it returns it checks [VM::m_exception](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/runtime/VM.h?rev=238247#L977) whether the C++-function has thrown an exception and would call into exception handling if so.
@@ -73,7 +76,7 @@ JS and C++-stack frames can be arbitrarily intertwined, JSC therefore needs a wa
 JSC doesn't have any knowledge about C++ stack frames - it just skips that part of the stack at once (no matter how many actual C++-function that actual are).
 For JS-function it is actual possible - and even required - to unwind function by function.
 
-TODO: insert image here
+![JS call](/images/jsc-stackunwinding.svg)
 
 JSC stores the begin and end of the last active region of JS-stack-frames: `VM::topCallFrame` and [VM::topEntryFrame](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/runtime/VM.h?rev=238247#L507).
 Unwinding that region of the stack just follows the saved frame pointer on the stack until we reach `topEntryFrame`.
@@ -98,7 +101,8 @@ When we reach it, JSC checks `VMEntryRecord` whether there were JS stack frames 
 Short recap: The JS parts are unwound frame by frame, while the C++-parts are skipped all at once.
 Unwinding starts at `VM::topCallFrame`.
 
-Unwinding also needs to support inlined frames: DFG and FTL can inline a JS-function into another, although in the stack this is now one stack frame unwinding should still be able unwind also the inlined functions.
+Unwinding also needs to support inlined frames: DFG and FTL can inline a JS-function into another, however on the stack this is now one combined stack frame.
+Nevertheless unwinding should still be able to recover inlined functions.
 Otherwise stack traces would be missing some function calls.
 
 ### Callee-saved registers
