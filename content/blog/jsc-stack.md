@@ -69,7 +69,7 @@ JS functions can also call back into the runtime (native functions) for certain 
 It also stores the current call frame in [VM::topCallFrame](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/runtime/VM.h?rev=238247#L512), but we will later cover that in more detail.
 `nativeCallTrampoline` also obviously calls the native function.
 When it returns it checks [VM::m_exception](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/runtime/VM.h?rev=238247#L977) whether the C++-function has thrown an exception and would call into exception handling if so.
-It then returns to the caller-JS-Function.
+It then returns to the caller JS function.
 
 ### Stack Unwinding
 JS and C++-stack frames can be arbitrarily intertwined, JSC therefore needs a way to safely unwind the stack.
