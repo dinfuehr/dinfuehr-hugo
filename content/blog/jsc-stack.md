@@ -8,7 +8,7 @@ draft = false
 JavaScriptCore (JSC, [WebKit](https://webkit.org/)'s JavaScript engine) needs to be able to parse/unwind the call stack for exception handling or determining stack traces.
 This is not so simple since JS and native/C++ can be arbitrarily intertwined and JS call frames do not match the system's calling convention.
 On the other hand while JSC controls JS stack frames and knows how to unwind them, it can't do the same thing for native C++ stack frames since this is defined by the compiler (its flags) and/or system.
-This document describes how JSC is still possible to unwind the stack.
+This document describes how JSC still manages to unwind the stack.
 
 ### JSC's Calling Convention
 JSC uses its own calling-convention for JS-Functions.
@@ -25,12 +25,12 @@ That means that C++ can't directly call JS-Functions compiled by JSC - there nee
 ![JS call](/images/jsc-calljs.png)
 
 In JSC this intermediate step is [vmEntryToJavaScript](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/llint/LowLevelInterpreter.asm?rev=238247#L1255) that is called by C++.
-It has a few duties:
+It has quite some responsibilities:
 
 * allocates and initializes a [VMEntryRecord](https://trac.webkit.org/browser/webkit/trunk/Source/JavaScriptCore/interpreter/VMEntryRecord.h?rev=238247#L37) on the stack, that is later used for stack unwinding,
 * it pushes the arguments on the stack but also everything else that is required by JSC's calling convention,
 * executes the actual JS-Function,
-* and then both removes call frame and returns to the caller.
+* and after function execution it removes the stack frame and returns to the caller.
 
 Not all JS-Functions in JSC are implemented in JS, some are actually implemented in C++.
 Although written in C++, they still make use of JSC's calling convention for passing arguments.

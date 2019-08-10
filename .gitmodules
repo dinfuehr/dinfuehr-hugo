@@ -1,7 +1,3 @@
 [submodule "themes/cocoa"]
 	path = themes/cocoa
 	url = https://github.com/dinfuehr/cocoa-hugo-theme.git
-[submodule "public"]
-	path = public
-	url = git@github.com:dinfuehr/dinfuehr.github.io.git
-	branch = master
