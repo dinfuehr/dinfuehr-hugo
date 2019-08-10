@@ -1,12 +1,13 @@
 #!/bin/bash
 
 echo -e "\033[0;32mDeploying updates to GitHub...\033[0m"
+DESTINATION=../dinfuehr.github.io
 
 # Build the project.
-hugo # if using a theme, replace by `hugo -t <yourtheme>`
+hugo --destination $DESTINATION -t cocoa
 
 # Go To Public folder
-cd public
+cd $DESTINATION
 # Add changes to git.
 git add -A
 
