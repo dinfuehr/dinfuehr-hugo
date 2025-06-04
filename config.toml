@@ -1,7 +1,15 @@
 languageCode = "en-us"
 title = "Dominik's Blog"
 baseurl = "https://dinfuehr.github.io/"
-theme = "cocoa"
+theme = "hugo-coder"
+
+[markup]
+[markup.highlight]
+noClasses = false
+
+[markup.goldmark]
+[markup.goldmark.renderer]
+unsafe = true
 
 [permalinks]
 fixed = ":title/"
@@ -15,3 +23,37 @@ twitter = "//twitter.com/dinfuehr"
 
 dateform     = "Jan 2, 2006"
 dateformfull = "Mon Jan 2 2006 15:04:05 MST"
+
+[[params.social]]
+name = "Github"
+icon = "fa fa-github"
+weight = 1
+url = "https://github.com/dinfuehr/"
+
+[[params.social]]
+name = "Twitter"
+icon = "fa fa-twitter"
+weight = 2
+url = "https://twitter.com/dinfuehr/"
+
+[[params.social]]
+name = "Email"
+icon = "fa fa-envelope"
+weight = 3
+url = "mailto:dominik.infuehr@gmail.com"
+
+[[params.social]]
+name = "RSS"
+icon = "fa fa-rss"
+weight = 4
+url = "https://dinfuehr.github.io/index.xml"
+
+[[menu.main]]
+name = "Blog"
+weight = 1
+url = "blog/"
+
+[[menu.main]]
+name = "About"
+weight = 2
+url = "about/"

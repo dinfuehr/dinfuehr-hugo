@@ -4,7 +4,7 @@ echo -e "\033[0;32mDeploying updates to GitHub...\033[0m"
 DESTINATION=../dinfuehr.github.io
 
 # Build the project.
-hugo --destination $DESTINATION -t cocoa
+hugo --destination $DESTINATION
 
 # Go To Public folder
 cd $DESTINATION
