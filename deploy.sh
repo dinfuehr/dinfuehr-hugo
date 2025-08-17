@@ -8,6 +8,7 @@ hugo --destination $DESTINATION
 
 # Go To Public folder
 cd $DESTINATION
+echo "dinfuehr.com" > $DESTINATION/CNAME
 # Add changes to git.
 git add -A
 
